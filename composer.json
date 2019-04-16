@@ -1,0 +1,15 @@
+{
+    "name": "dedegunawan/pdf-converter-client",
+    "authors": [
+        {
+            "name": "Dede Gunawan",
+            "email": "dede@unsil.ac.id"
+        }
+    ],
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "DedeGunawan\\PdfConverterClient\\" : "src/"
+        }
+    }
+}
