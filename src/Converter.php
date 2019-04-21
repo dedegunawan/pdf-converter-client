@@ -10,7 +10,9 @@ namespace DedeGunawan\PdfConverterClient;
 
 
 use DedeGunawan\PdfConverterClient\Exception\Base64DecodeException;
+use DedeGunawan\PdfConverterClient\Exception\CurlException;
 use DedeGunawan\PdfConverterClient\Exception\JsonDecodeException;
+use DedeGunawan\PdfConverterClient\Exception\PdfDataEmptyException;
 
 class Converter
 {
@@ -163,21 +165,29 @@ class Converter
 
         $file = $this->getFile();
         if (!$file) throw new \Exception("FILE not setted");
-        $file = "@{$file}";
+        $file = "{$file}";
+
+        $fields = compact('api_key', 'secret_key');
+        $files = array($file => file_get_contents($file));
+        $boundary = uniqid();
+        $delimiter = '-------------' . $boundary;
+
+        $post_data = $this->build_data_files($boundary, $fields, $files);
+
 
         curl_setopt_array($curl, array(
             CURLOPT_URL => "{$api_url}/api/convert",
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => "",
             CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 30,
+            CURLOPT_TIMEOUT => 300,
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_CUSTOMREQUEST => "POST",
-            CURLOPT_POSTFIELDS => compact('api_key', 'secret_key', 'file'),
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $post_data,
             CURLOPT_HTTPHEADER => array(
-                "Content-Type: application/x-www-form-urlencoded",
-                "Postman-Token: 4a9c1edc-7b38-4299-b9cf-9f29c32186ef",
-                "cache-control: no-cache",
+                "Content-Type: multipart/form-data; boundary=" . $delimiter,
+                "Content-Length: " . strlen($post_data)
             ),
         ));
 
@@ -193,15 +203,52 @@ class Converter
         }
     }
 
+    protected function build_data_files($boundary, $fields, $files){
+        $data = '';
+        $eol = "\r\n";
+
+        $delimiter = '-------------' . $boundary;
+
+        foreach ($fields as $name => $content) {
+            $data .= "--" . $delimiter . $eol
+                . 'Content-Disposition: form-data; name="' . $name . "\"".$eol.$eol
+                . $content . $eol;
+        }
+
+
+        foreach ($files as $name => $content) {
+            $data .= "--" . $delimiter . $eol
+                . 'Content-Disposition: form-data; name="file"; filename="' . $name . '"' . $eol
+                //. 'Content-Type: image/png'.$eol
+                . 'Content-Transfer-Encoding: binary'.$eol
+            ;
+
+            $data .= $eol;
+            $data .= $content . $eol;
+        }
+        $data .= "--" . $delimiter . "--".$eol;
+
+        return $data;
+    }
+
     public function real_pdf_file() {
         $response = @json_decode($this->getResponse(), 1);
         if (!$response) throw new JsonDecodeException();
 
-        $pdf_base64 = $response['items']['pdf'];
+        $pdf_base64 = @$response['items']['pdf'];
         $pdf = base64_decode($pdf_base64);
         if (!$pdf) throw new Base64DecodeException();
 
         $this->setPdfData($pdf);
+
+    }
+
+    public function showPdf() {
+        $pdf_data = $this->getPdfData();
+        if (!$pdf_data) throw new PdfDataEmptyException();
+
+        header("Content-Type:application/pdf");
+        echo $pdf_data;
     }
 
 
