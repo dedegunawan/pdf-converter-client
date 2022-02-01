@@ -189,6 +189,8 @@ class Converter
                 "Content-Type: multipart/form-data; boundary=" . $delimiter,
                 "Content-Length: " . strlen($post_data)
             ),
+	        CURLOPT_SSL_VERIFYHOST => 0,
+	        CURLOPT_SSL_VERIFYPEER => 0,
         ));
 
         $response = curl_exec($curl);
